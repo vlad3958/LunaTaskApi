@@ -76,6 +76,16 @@ builder.Services.AddAuthentication("Bearer")
 builder.Services.AddAuthorization();
 
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin() // Allows all origins
+              .AllowAnyMethod() // Allows all HTTP methods (GET, POST, PUT, DELETE, etc.)
+              .AllowAnyHeader(); // Allows all headers
+    });
+});
+
 
 var app = builder.Build();
 
@@ -90,6 +100,7 @@ if (app.Environment.IsDevelopment())
         options.OAuthAppName("Swagger UI");
     });
 }
+app.UseCors("AllowAll");
 
 app.UseHttpsRedirection();
 
