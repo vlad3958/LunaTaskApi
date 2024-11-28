@@ -21,7 +21,7 @@ namespace LunaTaskApi.Controllers
             _context = context;
         }
 
-        // GET /tasks - Retrieve all tasks for the authenticated user
+        // GET  - Retrieve all tasks for the authenticated user
         [HttpGet]
         public async Task<IActionResult> GetTasks([FromQuery] TaskFilter filter)
         {
@@ -56,7 +56,7 @@ namespace LunaTaskApi.Controllers
             return Ok(result);
         }
 
-        // GET /tasks/{id} - Retrieve a specific task by ID
+        // GET  Retrieve a specific task by ID
         [HttpGet("{id}")]
         public async Task<IActionResult> GetTask(Guid id)
         {
@@ -146,17 +146,27 @@ namespace LunaTaskApi.Controllers
         // Helper method to get the user ID from JWT claims
         private Guid GetUserIdFromClaims()
         {
-            var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub);
+            // Look for the 'nameidentifier' claim instead of 'sub'
+            var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
+
             if (userIdClaim == null)
             {
-                throw new UnauthorizedAccessException("User not authorized.");
+                throw new UnauthorizedAccessException("User not authorized. Claim 'sub' or 'nameidentifier' not found.");
             }
 
-            return Guid.Parse(userIdClaim.Value);
+            if (!Guid.TryParse(userIdClaim.Value, out var userId))
+            {
+                throw new UnauthorizedAccessException("User not authorized. Invalid userId in claim.");
+            }
+
+            return userId;
         }
+
+
+
     }
 
-    // DTOs for task creation and update
+    // DTOs 
     public class CreateTaskDto
     {
         public string Title { get; set; }
@@ -174,7 +184,7 @@ namespace LunaTaskApi.Controllers
         public TaskPriority? Priority { get; set; }
     }
 
-    // Filter model for task queries
+   
     public class TaskFilter
     {
         public TaskStatus? Status { get; set; }
