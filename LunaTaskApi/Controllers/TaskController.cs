@@ -1,11 +1,8 @@
 ﻿using LunaTaskApi;
+using LunaTaskApi.Repository; // Підключаємо репозиторій
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using System.Linq;
 using System.Security.Claims;
-using System.IdentityModel.Tokens.Jwt;
-
 
 namespace LunaTaskApi.Controllers
 {
@@ -14,46 +11,24 @@ namespace LunaTaskApi.Controllers
     [Authorize]
     public class TaskController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly ITaskRepository _taskRepository;
 
-        public TaskController(AppDbContext context)
+        // Конструктор приймає залежність через інтерфейс репозиторію
+        public TaskController(ITaskRepository taskRepository)
         {
-            _context = context;
+            _taskRepository = taskRepository;
         }
 
         // Отримати всі таски для юзера
         [HttpGet]
         public async Task<IActionResult> GetTasks([FromQuery] TaskFilter filter)
         {
-            var userId = GetUserIdFromClaims();
+            var userId = GetUserIdFromClaims(); // Отримуємо userId з JWT
 
-            IQueryable<Task> tasks = _context.Tasks.Where(t => t.UserId == userId);
+            // Отримуємо відфільтровані таски через репозиторій
+            var tasks = await _taskRepository.GetTasksAsync(userId, filter);
 
-            // Застосовуємо фільтри
-            if (filter.Status.HasValue)
-            {
-                tasks = tasks.Where(t => t.Status == filter.Status.Value);
-            }
-
-            if (filter.Priority.HasValue)
-            {
-                tasks = tasks.Where(t => t.Priority == filter.Priority.Value);
-            }
-
-            if (filter.DueDate.HasValue)
-            {
-                tasks = tasks.Where(t => t.DueDate <= filter.DueDate.Value);
-            }
-
-            // Pagination
-            if (filter.Page > 0 && filter.PageSize > 0)
-            {
-                tasks = tasks.Skip((filter.Page - 1) * filter.PageSize).Take(filter.PageSize);
-            }
-
-            var result = await tasks.ToListAsync();
-
-            return Ok(result);
+            return Ok(tasks); // Повертаємо список тасок
         }
 
         // Отримати таску по айді
@@ -62,22 +37,22 @@ namespace LunaTaskApi.Controllers
         {
             var userId = GetUserIdFromClaims();
 
-            var task = await _context.Tasks
-                .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
+            // Шукаємо таску через репозиторій
+            var task = await _taskRepository.GetTaskByIdAsync(id, userId);
 
             if (task == null)
             {
-                return NotFound();
+                return NotFound(); // Якщо не знайдено
             }
 
-            return Ok(task);
+            return Ok(task); // Повертаємо знайдену таску
         }
 
         // Створити нову таску
         [HttpPost]
         public async Task<IActionResult> CreateTask([FromBody] CreateTaskDto createTaskDto)
         {
-            var userId = GetUserIdFromClaims(); // отримуємо юзер айді по токену
+            var userId = GetUserIdFromClaims();
 
             var task = new Task
             {
@@ -85,43 +60,32 @@ namespace LunaTaskApi.Controllers
                 Title = createTaskDto.Title,
                 Description = createTaskDto.Description,
                 DueDate = createTaskDto.DueDate,
-                Status = TaskStatus.Pending, // Default status
+                Status = TaskStatus.Pending, // Статус за замовчуванням
                 Priority = createTaskDto.Priority,
                 UserId = userId
             };
-            //додаємо до БД
-            _context.Tasks.Add(task);
-            await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetTask), new { id = task.Id }, task);
+            // Додаємо таску через репозиторій
+            await _taskRepository.AddTaskAsync(task);
+
+            return CreatedAtAction(nameof(GetTask), new { id = task.Id }, task); // Повертаємо посилання на нову таску
         }
 
         // Оновити існуючу таску
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateTask(Guid id, [FromBody] UpdateTaskDto updateTaskDto)
         {
-            var userId = GetUserIdFromClaims(); // отримуємо юзер айді по токену
+            var userId = GetUserIdFromClaims();
 
-            var task = await _context.Tasks
-                .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
+            // Оновлюємо таску через репозиторій
+            var success = await _taskRepository.UpdateTaskAsync(id, userId, updateTaskDto);
 
-            if (task == null)
+            if (!success)
             {
-                return NotFound();
+                return NotFound(); // Якщо таска не знайдена або не належить юзеру
             }
 
-            // перевірка на null, чи є в нас зміни
-            task.Title = updateTaskDto.Title ?? task.Title;
-            task.Description = updateTaskDto.Description ?? task.Description;
-            task.DueDate = updateTaskDto.DueDate ?? task.DueDate;
-            task.Status = updateTaskDto.Status ?? task.Status;
-            task.Priority = updateTaskDto.Priority ?? task.Priority;
-            task.UpdatedAt = DateTime.UtcNow;
-
-            _context.Tasks.Update(task);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+            return NoContent(); // Успішно оновлено
         }
 
         // Видалити таску
@@ -130,29 +94,25 @@ namespace LunaTaskApi.Controllers
         {
             var userId = GetUserIdFromClaims();
 
-            var task = await _context.Tasks
-                .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
+            // Видаляємо таску через репозиторій
+            var success = await _taskRepository.DeleteTaskAsync(id, userId);
 
-            if (task == null)
+            if (!success)
             {
-                return NotFound();
+                return NotFound(); // Якщо таска не знайдена або не належить юзеру
             }
-            // видаляємо із БД
-            _context.Tasks.Remove(task);
-            await _context.SaveChangesAsync();
 
-            return NoContent();
+            return NoContent(); // Успішно видалено
         }
 
         // Допоміжний метод щоб отримувати userId із JWT
         private Guid GetUserIdFromClaims()
         {
-            // Look for the 'nameidentifier' claim instead of 'sub'
             var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
 
             if (userIdClaim == null)
             {
-                throw new UnauthorizedAccessException("User not authorized. Claim 'sub' or 'nameidentifier' not found.");
+                throw new UnauthorizedAccessException("User not authorized. Claim 'nameidentifier' not found.");
             }
 
             if (!Guid.TryParse(userIdClaim.Value, out var userId))
@@ -162,10 +122,5 @@ namespace LunaTaskApi.Controllers
 
             return userId;
         }
-
-
-
     }
-
-    
 }

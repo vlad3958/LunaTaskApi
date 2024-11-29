@@ -1,4 +1,6 @@
-﻿namespace LunaTaskApi
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace LunaTaskApi
 {
     public class User
     {
@@ -15,6 +17,7 @@
     public class UserDto
     {
         public string Username { get; set; }
+        [EmailAddress(ErrorMessage = "Invalid email address.")]
         public string Email { get; set; }
         public string Password { get; set; }
     }

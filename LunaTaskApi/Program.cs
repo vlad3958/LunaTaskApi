@@ -1,4 +1,5 @@
 using LunaTaskApi;
+using LunaTaskApi.Repository;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -85,6 +86,8 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader(); // Allows all headers
     });
 });
+
+builder.Services.AddScoped<ITaskRepository, TaskRepository>();
 
 
 var app = builder.Build();
