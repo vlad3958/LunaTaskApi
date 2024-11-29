@@ -10,6 +10,8 @@
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
         public ICollection<Task> Tasks { get; set; }
     }
+
+    //DTOs
     public class UserDto
     {
         public string Username { get; set; }

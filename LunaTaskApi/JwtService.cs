@@ -18,7 +18,7 @@ namespace LunaTaskApi
         {
             var claims = new List<Claim>
     {
-        new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),  // Add 'sub' claim
+        new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),  
         new Claim(JwtRegisteredClaimNames.Email, user.Email),
         new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
     };
@@ -39,11 +39,6 @@ namespace LunaTaskApi
 
 
     }
-    public class PasswordService
-    {
-        public string HashPassword(string password) => BCrypt.Net.BCrypt.HashPassword(password);
-
-        public bool VerifyPassword(string password, string hashedPassword) => BCrypt.Net.BCrypt.Verify(password, hashedPassword);
-    }
+   
 
 }

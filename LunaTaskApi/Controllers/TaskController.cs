@@ -21,7 +21,7 @@ namespace LunaTaskApi.Controllers
             _context = context;
         }
 
-        // GET  - Retrieve all tasks for the authenticated user
+        // Отримати всі таски для юзера
         [HttpGet]
         public async Task<IActionResult> GetTasks([FromQuery] TaskFilter filter)
         {
@@ -29,7 +29,7 @@ namespace LunaTaskApi.Controllers
 
             IQueryable<Task> tasks = _context.Tasks.Where(t => t.UserId == userId);
 
-            // Apply filters
+            // Застосовуємо фільтри
             if (filter.Status.HasValue)
             {
                 tasks = tasks.Where(t => t.Status == filter.Status.Value);
@@ -56,7 +56,7 @@ namespace LunaTaskApi.Controllers
             return Ok(result);
         }
 
-        // GET  Retrieve a specific task by ID
+        // Отримати таску по айді
         [HttpGet("{id}")]
         public async Task<IActionResult> GetTask(Guid id)
         {
@@ -73,11 +73,11 @@ namespace LunaTaskApi.Controllers
             return Ok(task);
         }
 
-        // POST /tasks - Create a new task
+        // Створити нову таску
         [HttpPost]
         public async Task<IActionResult> CreateTask([FromBody] CreateTaskDto createTaskDto)
         {
-            var userId = GetUserIdFromClaims();
+            var userId = GetUserIdFromClaims(); // отримуємо юзер айді по токену
 
             var task = new Task
             {
@@ -89,18 +89,18 @@ namespace LunaTaskApi.Controllers
                 Priority = createTaskDto.Priority,
                 UserId = userId
             };
-
+            //додаємо до БД
             _context.Tasks.Add(task);
             await _context.SaveChangesAsync();
 
             return CreatedAtAction(nameof(GetTask), new { id = task.Id }, task);
         }
 
-        // PUT /tasks/{id} - Update an existing task
+        // Оновити існуючу таску
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateTask(Guid id, [FromBody] UpdateTaskDto updateTaskDto)
         {
-            var userId = GetUserIdFromClaims();
+            var userId = GetUserIdFromClaims(); // отримуємо юзер айді по токену
 
             var task = await _context.Tasks
                 .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
@@ -110,6 +110,7 @@ namespace LunaTaskApi.Controllers
                 return NotFound();
             }
 
+            // перевірка на null, чи є в нас зміни
             task.Title = updateTaskDto.Title ?? task.Title;
             task.Description = updateTaskDto.Description ?? task.Description;
             task.DueDate = updateTaskDto.DueDate ?? task.DueDate;
@@ -123,7 +124,7 @@ namespace LunaTaskApi.Controllers
             return NoContent();
         }
 
-        // DELETE /tasks/{id} - Delete a task
+        // Видалити таску
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteTask(Guid id)
         {
@@ -136,14 +137,14 @@ namespace LunaTaskApi.Controllers
             {
                 return NotFound();
             }
-
+            // видаляємо із БД
             _context.Tasks.Remove(task);
             await _context.SaveChangesAsync();
 
             return NoContent();
         }
 
-        // Helper method to get the user ID from JWT claims
+        // Допоміжний метод щоб отримувати userId із JWT
         private Guid GetUserIdFromClaims()
         {
             // Look for the 'nameidentifier' claim instead of 'sub'
@@ -166,31 +167,5 @@ namespace LunaTaskApi.Controllers
 
     }
 
-    // DTOs 
-    public class CreateTaskDto
-    {
-        public string Title { get; set; }
-        public string Description { get; set; }
-        public DateTime? DueDate { get; set; }
-        public TaskPriority Priority { get; set; }
-    }
-
-    public class UpdateTaskDto
-    {
-        public string Title { get; set; }
-        public string Description { get; set; }
-        public DateTime? DueDate { get; set; }
-        public TaskStatus? Status { get; set; }
-        public TaskPriority? Priority { get; set; }
-    }
-
-   
-    public class TaskFilter
-    {
-        public TaskStatus? Status { get; set; }
-        public TaskPriority? Priority { get; set; }
-        public DateTime? DueDate { get; set; }
-        public int Page { get; set; } = 1;
-        public int PageSize { get; set; } = 10;
-    }
+    
 }
