@@ -87,7 +87,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddScoped<ITaskRepository, TaskRepository>();
+builder.Services.AddScoped<ITaskRepository, TaskRepository>(); //   DI для таск репозиторію
 
 
 var app = builder.Build();
